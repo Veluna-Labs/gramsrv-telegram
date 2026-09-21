@@ -1,10 +1,13 @@
-name: Diagnose Telegram Build
+name: Build Telegram APK
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
 
 jobs:
-  diagnose:
+  build:
     runs-on: ubuntu-latest
 
     steps:
@@ -20,44 +23,38 @@ jobs:
       - name: Make Gradle executable
         run: chmod +x ./gradlew
 
-      - name: Show project structure
+      - name: Download Gradle distribution
         run: |
-          echo "===== SETTINGS ====="
-          find . -maxdepth 2 -type f \( \
-            -name "settings.gradle" \
-            -o -name "settings.gradle.kts" \
-            -o -name "build.gradle" \
-            -o -name "build.gradle.kts" \
-          \) -print
+          for i in 1 2 3 4 5; do
+            echo "Gradle download attempt $i/5"
+            if ./gradlew --version --no-daemon; then
+              echo "Gradle is available"
+              exit 0
+            fi
 
-          echo "===== PROJECTS ====="
-          ./gradlew projects --no-daemon
+            echo "Download failed, retrying in 10 seconds..."
+            sleep 10
+          done
 
-      - name: Show TMessagesProj tasks
+          echo "Gradle distribution could not be downloaded"
+          exit 1
+
+      - name: Build APK
         run: |
-          ./gradlew :TMessagesProj:tasks --all --no-daemon
+          ./gradlew assembleAfatRelease --no-daemon --stacktrace
 
-      - name: Show jlatexmath tasks
+      - name: Find APK
+        if: success()
         run: |
-          ./gradlew :jlatexmath:tasks --all --no-daemon
+          echo "===== APK FILES ====="
+          find . -type f -name "*.apk" -print
 
-      - name: Show Android build plugin versions
-        run: |
-          echo "===== AGP REFERENCES ====="
-          grep -Rni \
-            -E "com.android.tools.build:gradle|com.android.application|com.android.library" \
-            --include="*.gradle" \
-            --include="*.gradle.kts" \
-            --include="*.toml" \
-            . || true
-
-      - name: Show jlatexmath configuration
-        run: |
-          echo "===== JLATEXMATH REFERENCES ====="
-          grep -Rni \
-            -E "jlatexmath|standalone" \
-            --include="settings.gradle" \
-            --include="settings.gradle.kts" \
-            --include="build.gradle" \
-            --include="build.gradle.kts" \
-            . || true
+      - name: Upload APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: telegram-apk
+          path: |
+            **/build/outputs/apk/**/*.apk
+            **/build/outputs/apk/*.apk
+          if-no-files-found: error
