@@ -20,13 +20,25 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Make gradlew executable
+      - name: Make Gradle executable
         run: chmod +x ./gradlew
 
+      - name: Show Gradle and Android tasks
+        run: |
+          ./gradlew tasks --all --no-daemon --stacktrace
+
       - name: Build APK
-        run: ./gradlew assembleAfatRelease --no-daemon --stacktrace
+        run: |
+          ./gradlew assembleAfatRelease --no-daemon --stacktrace
+
+      - name: Find APK files
+        if: success()
+        run: |
+          echo "=== APK FILES ==="
+          find . -type f -name "*.apk" -print
 
       - name: Upload APK
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: telegram-apk
