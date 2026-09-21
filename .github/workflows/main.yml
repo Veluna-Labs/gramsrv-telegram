@@ -1,13 +1,10 @@
-name: Build Telegram APK
+name: Diagnose Telegram Build
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
 
 jobs:
-  build:
+  diagnose:
     runs-on: ubuntu-latest
 
     steps:
@@ -23,26 +20,44 @@ jobs:
       - name: Make Gradle executable
         run: chmod +x ./gradlew
 
-      - name: Show Gradle and Android tasks
+      - name: Show project structure
         run: |
-          ./gradlew tasks --all --no-daemon --stacktrace
+          echo "===== SETTINGS ====="
+          find . -maxdepth 2 -type f \( \
+            -name "settings.gradle" \
+            -o -name "settings.gradle.kts" \
+            -o -name "build.gradle" \
+            -o -name "build.gradle.kts" \
+          \) -print
 
-      - name: Build APK
+          echo "===== PROJECTS ====="
+          ./gradlew projects --no-daemon
+
+      - name: Show TMessagesProj tasks
         run: |
-          ./gradlew assembleAfatRelease --no-daemon --stacktrace
+          ./gradlew :TMessagesProj:tasks --all --no-daemon
 
-      - name: Find APK files
-        if: success()
+      - name: Show jlatexmath tasks
         run: |
-          echo "=== APK FILES ==="
-          find . -type f -name "*.apk" -print
+          ./gradlew :jlatexmath:tasks --all --no-daemon
 
-      - name: Upload APK
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: telegram-apk
-          path: |
-            **/build/outputs/apk/**/*.apk
-            **/build/outputs/apk/*.apk
-          if-no-files-found: error
+      - name: Show Android build plugin versions
+        run: |
+          echo "===== AGP REFERENCES ====="
+          grep -Rni \
+            -E "com.android.tools.build:gradle|com.android.application|com.android.library" \
+            --include="*.gradle" \
+            --include="*.gradle.kts" \
+            --include="*.toml" \
+            . || true
+
+      - name: Show jlatexmath configuration
+        run: |
+          echo "===== JLATEXMATH REFERENCES ====="
+          grep -Rni \
+            -E "jlatexmath|standalone" \
+            --include="settings.gradle" \
+            --include="settings.gradle.kts" \
+            --include="build.gradle" \
+            --include="build.gradle.kts" \
+            . || true
